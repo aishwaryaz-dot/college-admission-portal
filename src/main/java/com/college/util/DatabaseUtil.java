@@ -3,6 +3,8 @@ package com.college.util;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class DatabaseUtil {
     // Default local development settings
@@ -10,10 +12,13 @@ public class DatabaseUtil {
     private static final String DEFAULT_USER = "root";
     private static final String DEFAULT_PASSWORD = "gaurav685";
     
+    // Parse PostgreSQL URL if present (for Render.com)
+    private static final PostgresConnectionInfo PG_CONNECTION_INFO = parsePostgresUrl();
+    
     // Get configuration from environment variables if available
-    private static final String URL = getConnectionUrl();
-    private static final String USER = getEnvOrDefault("SPRING_DATASOURCE_USERNAME", DEFAULT_USER);
-    private static final String PASSWORD = getEnvOrDefault("SPRING_DATASOURCE_PASSWORD", DEFAULT_PASSWORD);
+    private static final String URL = PG_CONNECTION_INFO != null ? PG_CONNECTION_INFO.jdbcUrl : DEFAULT_URL;
+    private static final String USER = PG_CONNECTION_INFO != null ? PG_CONNECTION_INFO.username : DEFAULT_USER;
+    private static final String PASSWORD = PG_CONNECTION_INFO != null ? PG_CONNECTION_INFO.password : DEFAULT_PASSWORD;
 
     static {
         try {
@@ -24,6 +29,7 @@ public class DatabaseUtil {
                 Class.forName("com.mysql.cj.jdbc.Driver");
             }
             System.out.println("Using database URL: " + URL);
+            System.out.println("Using database USER: " + USER);
         } catch (ClassNotFoundException e) {
             e.printStackTrace();
         }
@@ -43,28 +49,42 @@ public class DatabaseUtil {
         }
     }
     
-    private static String getEnvOrDefault(String envName, String defaultValue) {
-        String value = System.getenv(envName);
-        return (value != null && !value.isEmpty()) ? value : defaultValue;
-    }
-    
-    private static String getConnectionUrl() {
-        String jdbcUrl = System.getenv("JDBC_DATABASE_URL");
-        if (jdbcUrl != null && !jdbcUrl.isEmpty()) {
-            // Already has jdbc: prefix
-            if (jdbcUrl.startsWith("jdbc:")) {
-                return jdbcUrl;
-            }
-            
-            // Add jdbc: prefix to postgresql URL
-            if (jdbcUrl.startsWith("postgresql://")) {
-                return "jdbc:" + jdbcUrl;
-            }
-            
-            return jdbcUrl;
+    private static PostgresConnectionInfo parsePostgresUrl() {
+        String databaseUrl = System.getenv("DATABASE_URL");
+        if (databaseUrl == null || databaseUrl.isEmpty()) {
+            return null;
         }
         
-        // Fall back to default MySQL URL for local development
-        return DEFAULT_URL;
+        System.out.println("Raw DATABASE_URL: " + databaseUrl);
+        
+        // Parse URL in format: postgresql://username:password@host/database
+        Pattern pattern = Pattern.compile("postgresql://([^:]+):([^@]+)@([^/]+)/(.+)");
+        Matcher matcher = pattern.matcher(databaseUrl);
+        
+        if (matcher.matches()) {
+            String username = matcher.group(1);
+            String password = matcher.group(2);
+            String host = matcher.group(3);
+            String database = matcher.group(4);
+            
+            // Construct proper JDBC URL
+            String jdbcUrl = "jdbc:postgresql://" + host + "/" + database;
+            
+            return new PostgresConnectionInfo(jdbcUrl, username, password);
+        }
+        
+        return null;
+    }
+    
+    private static class PostgresConnectionInfo {
+        final String jdbcUrl;
+        final String username;
+        final String password;
+        
+        PostgresConnectionInfo(String jdbcUrl, String username, String password) {
+            this.jdbcUrl = jdbcUrl;
+            this.username = username;
+            this.password = password;
+        }
     }
 } 
