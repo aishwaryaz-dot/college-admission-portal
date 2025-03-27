@@ -1,119 +1,93 @@
 package com.college.model;
 
-import java.sql.Date;
-import java.sql.Timestamp;
+import java.util.Date;
 import java.util.List;
-import java.util.ArrayList;
 
 public class Application {
-    private int id;
-    private int userId;
-    private String firstName;
-    private String lastName;
-    private Date dateOfBirth;
-    private String phone;
-    private String address;
+    private Long id;
+    private Student student;
     private String program;
-    private String status;
-    private Timestamp createdAt;
-    private Timestamp updatedAt;
+    private String status; // "PENDING", "APPROVED", "REJECTED"
+    private Date submissionDate;
+    private Date lastUpdated;
+    private String personalStatement;
     private List<Document> documents;
-
-    public Application() {}
-
-    // Getters and Setters
-    public int getId() {
+    
+    public Application() {
+    }
+    
+    public Application(Long id, Student student, String program, String status, 
+                      Date submissionDate, Date lastUpdated, String personalStatement) {
+        this.id = id;
+        this.student = student;
+        this.program = program;
+        this.status = status;
+        this.submissionDate = submissionDate;
+        this.lastUpdated = lastUpdated;
+        this.personalStatement = personalStatement;
+    }
+    
+    // Getters and setters
+    public Long getId() {
         return id;
     }
-
-    public void setId(int id) {
+    
+    public void setId(Long id) {
         this.id = id;
     }
-
-    public int getUserId() {
-        return userId;
+    
+    public Student getStudent() {
+        return student;
     }
-
-    public void setUserId(int userId) {
-        this.userId = userId;
+    
+    public void setStudent(Student student) {
+        this.student = student;
     }
-
-    public String getFirstName() {
-        return firstName;
-    }
-
-    public void setFirstName(String firstName) {
-        this.firstName = firstName;
-    }
-
-    public String getLastName() {
-        return lastName;
-    }
-
-    public void setLastName(String lastName) {
-        this.lastName = lastName;
-    }
-
-    public Date getDateOfBirth() {
-        return dateOfBirth;
-    }
-
-    public void setDateOfBirth(Date dateOfBirth) {
-        this.dateOfBirth = dateOfBirth;
-    }
-
-    public String getPhone() {
-        return phone;
-    }
-
-    public void setPhone(String phone) {
-        this.phone = phone;
-    }
-
-    public String getAddress() {
-        return address;
-    }
-
-    public void setAddress(String address) {
-        this.address = address;
-    }
-
+    
     public String getProgram() {
         return program;
     }
-
+    
     public void setProgram(String program) {
         this.program = program;
     }
-
+    
     public String getStatus() {
         return status;
     }
-
+    
     public void setStatus(String status) {
         this.status = status;
     }
-
-    public Timestamp getCreatedAt() {
-        return createdAt;
+    
+    public Date getSubmissionDate() {
+        return submissionDate;
     }
-
-    public void setCreatedAt(Timestamp createdAt) {
-        this.createdAt = createdAt;
+    
+    public void setSubmissionDate(Date submissionDate) {
+        this.submissionDate = submissionDate;
     }
-
-    public Timestamp getUpdatedAt() {
-        return updatedAt;
+    
+    public Date getLastUpdated() {
+        return lastUpdated;
     }
-
-    public void setUpdatedAt(Timestamp updatedAt) {
-        this.updatedAt = updatedAt;
+    
+    public void setLastUpdated(Date lastUpdated) {
+        this.lastUpdated = lastUpdated;
     }
-
+    
+    public String getPersonalStatement() {
+        return personalStatement;
+    }
+    
+    public void setPersonalStatement(String personalStatement) {
+        this.personalStatement = personalStatement;
+    }
+    
     public List<Document> getDocuments() {
-        return documents != null ? documents : new ArrayList<>();
+        return documents;
     }
-
+    
     public void setDocuments(List<Document> documents) {
         this.documents = documents;
     }
