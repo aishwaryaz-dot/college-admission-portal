@@ -23,7 +23,7 @@ public class DatabaseUtil {
     static {
         try {
             // Detect driver based on URL
-            if (URL.contains("postgresql")) {
+            if (isPostgresql()) {
                 Class.forName("org.postgresql.Driver");
             } else {
                 Class.forName("com.mysql.cj.jdbc.Driver");
@@ -47,6 +47,14 @@ public class DatabaseUtil {
                 e.printStackTrace();
             }
         }
+    }
+    
+    /**
+     * Check if the configured database is PostgreSQL
+     * @return true if using PostgreSQL, false otherwise
+     */
+    public static boolean isPostgresql() {
+        return URL.contains("postgresql");
     }
     
     private static PostgresConnectionInfo parsePostgresUrl() {

@@ -7,9 +7,14 @@ import java.sql.*;
 
 public class UserDAO {
     public UserDAO() {
-        createAdminIfNotExists();
+        // Admin will be created by DatabaseInitializer now
+        // No need to call createAdminIfNotExists() here
     }
 
+    /**
+     * This method is kept for backward compatibility but is no longer called in the constructor
+     * as the admin user is now created by the DatabaseInitializer
+     */
     private void createAdminIfNotExists() {
         String sql = "SELECT * FROM users WHERE email = 'admin@college.com'";
         try (Connection conn = DatabaseUtil.getConnection();
@@ -22,7 +27,8 @@ public class UserDAO {
                 registerUser(admin);
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            System.err.println("Error checking for admin user: " + e.getMessage());
+            // Don't rethrow - this is expected to fail if tables don't exist yet
         }
     }
 
@@ -44,7 +50,7 @@ public class UserDAO {
                 return user;
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            System.err.println("Authentication error: " + e.getMessage());
         }
         return null;
     }
@@ -60,7 +66,7 @@ public class UserDAO {
             
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
-            e.printStackTrace();
+            System.err.println("User registration error: " + e.getMessage());
             return false;
         }
     }
@@ -82,7 +88,7 @@ public class UserDAO {
                 return user;
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            System.err.println("Error getting user by ID: " + e.getMessage());
         }
         return null;
     }
