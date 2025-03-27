@@ -11,7 +11,7 @@ public class DatabaseUtil {
     private static final String DEFAULT_PASSWORD = "gaurav685";
     
     // Get configuration from environment variables if available
-    private static final String URL = getEnvOrDefault("JDBC_DATABASE_URL", DEFAULT_URL);
+    private static final String URL = getConnectionUrl();
     private static final String USER = getEnvOrDefault("SPRING_DATASOURCE_USERNAME", DEFAULT_USER);
     private static final String PASSWORD = getEnvOrDefault("SPRING_DATASOURCE_PASSWORD", DEFAULT_PASSWORD);
 
@@ -23,6 +23,7 @@ public class DatabaseUtil {
             } else {
                 Class.forName("com.mysql.cj.jdbc.Driver");
             }
+            System.out.println("Using database URL: " + URL);
         } catch (ClassNotFoundException e) {
             e.printStackTrace();
         }
@@ -45,5 +46,25 @@ public class DatabaseUtil {
     private static String getEnvOrDefault(String envName, String defaultValue) {
         String value = System.getenv(envName);
         return (value != null && !value.isEmpty()) ? value : defaultValue;
+    }
+    
+    private static String getConnectionUrl() {
+        String jdbcUrl = System.getenv("JDBC_DATABASE_URL");
+        if (jdbcUrl != null && !jdbcUrl.isEmpty()) {
+            // Already has jdbc: prefix
+            if (jdbcUrl.startsWith("jdbc:")) {
+                return jdbcUrl;
+            }
+            
+            // Add jdbc: prefix to postgresql URL
+            if (jdbcUrl.startsWith("postgresql://")) {
+                return "jdbc:" + jdbcUrl;
+            }
+            
+            return jdbcUrl;
+        }
+        
+        // Fall back to default MySQL URL for local development
+        return DEFAULT_URL;
     }
 } 
