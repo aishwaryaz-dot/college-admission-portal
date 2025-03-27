@@ -46,6 +46,13 @@
             <version>8.0.28</version>
         </dependency>
 
+        <!-- PostgreSQL Driver -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.5.1</version>
+        </dependency>
+
         <!-- File Upload -->
         <dependency>
             <groupId>commons-fileupload</groupId>
