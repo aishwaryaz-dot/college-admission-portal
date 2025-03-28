@@ -57,8 +57,8 @@ public class AuthServlet extends HttpServlet {
                 // Admins go to admin dashboard
                 response.sendRedirect(request.getContextPath() + "/admin/dashboard.jsp");
             } else {
-                // Students go to application list
-                response.sendRedirect(request.getContextPath() + "/application/list");
+                // Students go to student dashboard directly
+                response.sendRedirect(request.getContextPath() + "/student/dashboard.jsp");
             }
         } else {
             response.sendRedirect(request.getContextPath() + "/login.jsp?error=invalid");

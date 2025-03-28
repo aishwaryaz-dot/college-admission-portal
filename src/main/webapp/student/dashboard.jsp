@@ -2,6 +2,7 @@
 <%@ page import="com.college.model.User" %>
 <%@ page import="com.college.model.Student" %>
 <%@ page import="java.util.List" %>
+<%@ page import="java.util.ArrayList" %>
 <%@ page import="com.college.model.Application" %>
 <!DOCTYPE html>
 <html>
@@ -58,8 +59,14 @@
         
         Student student = (Student) request.getAttribute("studentInfo");
         List<Application> applications = (List<Application>) request.getAttribute("applications");
+        
+        // Initialize to empty list if null to avoid NPE
+        if (applications == null) {
+            applications = new ArrayList<>();
+        }
+        
         boolean hasProfile = student != null;
-        boolean hasApplication = applications != null && !applications.isEmpty();
+        boolean hasApplication = !applications.isEmpty();
     %>
 
     <div class="container-fluid">
