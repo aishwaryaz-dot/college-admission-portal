@@ -31,21 +31,18 @@ public class MessageServlet extends HttpServlet {
         if ("/list".equals(pathInfo)) {
             handleListMessages(request, response);
         } else {
-            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-            response.getWriter().write("{\"success\": false, \"message\": \"Invalid endpoint\"}");
+            sendJsonError(response, HttpServletResponse.SC_NOT_FOUND, "Invalid endpoint");
         }
     }
     
     private void handleListMessages(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
-        response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
+        setJsonResponse(response);
         
         try {
             User user = (User) request.getSession().getAttribute("user");
             if (user == null) {
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.getWriter().write("{\"success\": false, \"message\": \"User not logged in\"}");
+                sendJsonError(response, HttpServletResponse.SC_UNAUTHORIZED, "User not logged in");
                 return;
             }
             
@@ -55,17 +52,18 @@ public class MessageServlet extends HttpServlet {
             for (Message msg : messages) {
                 JSONObject jsonMsg = new JSONObject();
                 jsonMsg.put("id", msg.getId());
+                jsonMsg.put("userId", msg.getUserId());
                 jsonMsg.put("message", msg.getMessage());
                 jsonMsg.put("fromAdmin", msg.isFromAdmin());
-                jsonMsg.put("createdAt", msg.getCreatedAt().toString());
+                if (msg.getCreatedAt() != null) {
+                    jsonMsg.put("createdAt", msg.getCreatedAt().toString());
+                }
                 jsonArray.put(jsonMsg);
             }
             
-            response.getWriter().write(jsonArray.toString());
+            sendJsonResponse(response, new JSONObject().put("success", true).put("messages", jsonArray));
         } catch (Exception e) {
-            e.printStackTrace();
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            response.getWriter().write("{\"success\": false, \"message\": \"Error fetching messages: " + escapeJson(e.getMessage()) + "\"}");
+            sendJsonError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error fetching messages: " + e.getMessage());
         }
     }
     
@@ -77,21 +75,18 @@ public class MessageServlet extends HttpServlet {
         if ("/send".equals(pathInfo)) {
             handleSendMessage(request, response);
         } else {
-            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-            response.getWriter().write("{\"success\": false, \"message\": \"Invalid endpoint\"}");
+            sendJsonError(response, HttpServletResponse.SC_NOT_FOUND, "Invalid endpoint");
         }
     }
     
     private void handleSendMessage(HttpServletRequest request, HttpServletResponse response) 
             throws IOException {
-        response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
+        setJsonResponse(response);
         
         try {
             HttpSession session = request.getSession(false);
             if (session == null || session.getAttribute("user") == null) {
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.getWriter().write("{\"success\": false, \"message\": \"User not logged in\"}");
+                sendJsonError(response, HttpServletResponse.SC_UNAUTHORIZED, "User not logged in");
                 return;
             }
             
@@ -99,8 +94,7 @@ public class MessageServlet extends HttpServlet {
             String messageText = request.getParameter("message");
             
             if (messageText == null || messageText.trim().isEmpty()) {
-                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                response.getWriter().write("{\"success\": false, \"message\": \"Message cannot be empty\"}");
+                sendJsonError(response, HttpServletResponse.SC_BAD_REQUEST, "Message cannot be empty");
                 return;
             }
             
@@ -108,26 +102,29 @@ public class MessageServlet extends HttpServlet {
             boolean success = messageDAO.saveMessage(message);
             
             if (success) {
-                response.getWriter().write("{\"success\": true, \"message\": \"Message sent successfully\"}");
+                sendJsonResponse(response, new JSONObject().put("success", true).put("message", "Message sent successfully"));
             } else {
-                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                response.getWriter().write("{\"success\": false, \"message\": \"Failed to send message\"}");
+                sendJsonError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to send message");
             }
         } catch (Exception e) {
-            e.printStackTrace();
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            response.getWriter().write("{\"success\": false, \"message\": \"Error sending message: " + escapeJson(e.getMessage()) + "\"}");
+            sendJsonError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error sending message: " + e.getMessage());
         }
     }
     
-    private String escapeJson(String input) {
-        if (input == null) {
-            return "";
-        }
-        return input.replace("\\", "\\\\")
-                   .replace("\"", "\\\"")
-                   .replace("\n", "\\n")
-                   .replace("\r", "\\r")
-                   .replace("\t", "\\t");
+    private void setJsonResponse(HttpServletResponse response) {
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+    }
+    
+    private void sendJsonResponse(HttpServletResponse response, JSONObject json) throws IOException {
+        response.getWriter().write(json.toString());
+    }
+    
+    private void sendJsonError(HttpServletResponse response, int status, String message) throws IOException {
+        response.setStatus(status);
+        JSONObject error = new JSONObject()
+            .put("success", false)
+            .put("message", message);
+        sendJsonResponse(response, error);
     }
 } 

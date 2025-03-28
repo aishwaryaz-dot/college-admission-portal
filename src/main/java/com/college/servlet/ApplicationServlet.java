@@ -295,111 +295,95 @@ public class ApplicationServlet extends HttpServlet {
     }
 
     private void handleDownloadDocument(HttpServletRequest request, HttpServletResponse response) 
-            throws ServletException, IOException, SQLException {
-        String idParam = request.getParameter("id");
-        if (idParam == null || idParam.isEmpty()) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing document ID");
+            throws ServletException, IOException {
+        String documentIdStr = request.getParameter("documentId");
+        if (documentIdStr == null || documentIdStr.trim().isEmpty()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Document ID is required");
             return;
         }
 
         try {
-            Long documentId = Long.parseLong(idParam);
+            Long documentId = Long.parseLong(documentIdStr);
             Document document = documentDAO.getDocumentById(documentId);
             
-            if (document != null) {
-                String filePath = getServletContext().getRealPath("") + File.separator + document.getFilePath();
-                File file = new File(filePath);
-                
-                if (file.exists()) {
-                    // Set content type based on file extension
-                    String fileName = document.getFileName();
-                    String contentType = getServletContext().getMimeType(fileName);
-                    if (contentType == null) {
-                        contentType = "application/octet-stream";
-                    }
-                    
-                    response.setContentType(contentType);
-                    response.setHeader("Content-Disposition", "attachment; filename=\"" + document.getFileName() + "\"");
-                    response.setHeader("Content-Length", String.valueOf(file.length()));
-                    
-                    try (InputStream fileInputStream = new FileInputStream(file);
-                         OutputStream responseOutputStream = response.getOutputStream()) {
-                        byte[] buffer = new byte[4096];
-                        int bytesRead;
-                        while ((bytesRead = fileInputStream.read(buffer)) != -1) {
-                            responseOutputStream.write(buffer, 0, bytesRead);
-                        }
-                    }
-                } else {
-                    response.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found");
-                }
-            } else {
+            if (document == null) {
                 response.sendError(HttpServletResponse.SC_NOT_FOUND, "Document not found");
+                return;
+            }
+
+            // Get the full file path
+            String filePath = getServletContext().getRealPath("") + File.separator + UPLOAD_DIRECTORY + File.separator + document.getFilePath();
+            File file = new File(filePath);
+            
+            if (!file.exists()) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found on server");
+                return;
+            }
+
+            // Set content type based on file extension
+            String fileName = document.getFileName();
+            String contentType = getServletContext().getMimeType(fileName);
+            if (contentType == null) {
+                contentType = "application/octet-stream";
+            }
+            
+            response.setContentType(contentType);
+            response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
+            response.setContentLength((int) file.length());
+
+            try (FileInputStream in = new FileInputStream(file);
+                 OutputStream out = response.getOutputStream()) {
+                byte[] buffer = new byte[4096];
+                int bytesRead;
+                while ((bytesRead = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, bytesRead);
+                }
             }
         } catch (NumberFormatException e) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid document ID format");
+        } catch (Exception e) {
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error downloading document: " + e.getMessage());
         }
     }
 
     private void handleDeleteApplication(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
-        User user = (User) request.getSession().getAttribute("user");
+        HttpSession session = request.getSession(false);
+        User user = (User) session.getAttribute("user");
+        
         if (user == null || !"ADMIN".equals(user.getRole())) {
-            response.sendRedirect(request.getContextPath() + "/login.jsp");
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Only administrators can delete applications");
             return;
         }
-        
-        String idParam = request.getParameter("id");
-        if (idParam == null || idParam.isEmpty()) {
-            response.sendRedirect(request.getContextPath() + "/admin/applications.jsp?error=missing");
+
+        String applicationIdStr = request.getParameter("id");
+        if (applicationIdStr == null || applicationIdStr.trim().isEmpty()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Application ID is required");
             return;
         }
-        
+
         try {
-            Long applicationId = Long.parseLong(idParam);
+            Long applicationId = Long.parseLong(applicationIdStr);
             
-            // First delete associated messages
+            // Delete associated messages first
             MessageDAO messageDAO = new MessageDAO();
-            boolean messagesDeleted = messageDAO.deleteMessagesByUserId(applicationId);
-            System.out.println("Messages deleted for application ID=" + applicationId + ": " + messagesDeleted);
+            messageDAO.deleteMessagesByUserId(applicationId);
             
-            // Then get documents for deletion of physical files
-            List<Document> documents = documentDAO.getDocumentsByApplicationId(applicationId);
-            
-            // Delete document database records first
-            boolean documentsDeleted = documentDAO.deleteDocumentsByApplicationId(applicationId);
-            System.out.println("Document records deleted for application ID=" + applicationId + ": " + documentsDeleted);
-            
-            // Now delete physical files
-            for (Document doc : documents) {
-                String filePath = getServletContext().getRealPath("") + File.separator + doc.getFilePath();
-                File file = new File(filePath);
-                if (file.exists()) {
-                    boolean deleted = file.delete();
-                    System.out.println("Deleting file: " + filePath + " - Result: " + deleted);
-                }
-            }
+            // Delete associated documents
+            documentDAO.deleteDocumentsByApplicationId(applicationId);
             
             // Finally delete the application
             boolean deleted = applicationDAO.deleteApplication(applicationId);
             
             if (deleted) {
-                System.out.println("Application deleted successfully: ID=" + applicationId);
-                request.getSession().setAttribute("successMessage", "Application deleted successfully");
+                response.sendRedirect(request.getContextPath() + "/application/list?success=deleted");
             } else {
-                System.out.println("Delete failed: Application not found or DB error for ID=" + applicationId);
-                request.getSession().setAttribute("errorMessage", "Failed to delete application");
+                response.sendRedirect(request.getContextPath() + "/application/list?error=deletefailed");
             }
         } catch (NumberFormatException e) {
-            System.out.println("Delete failed: Invalid ID format: " + idParam);
-            request.getSession().setAttribute("errorMessage", "Invalid application ID format");
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid application ID format");
         } catch (Exception e) {
-            System.out.println("Delete failed: Unexpected error: " + e.getMessage());
-            e.printStackTrace();
-            request.getSession().setAttribute("errorMessage", "An error occurred: " + e.getMessage());
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error deleting application: " + e.getMessage());
         }
-        
-        // Always redirect back to applications list
-        response.sendRedirect(request.getContextPath() + "/application/list");
     }
 } 
