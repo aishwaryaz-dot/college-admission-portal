@@ -3,75 +3,84 @@ package com.college.model;
 import java.sql.Timestamp;
 
 public class Message {
-    private int id;
-    private int applicationId;
-    private int senderId;
+    private Long id;
+    private Long userId;
     private String message;
+    private boolean fromAdmin;
     private Timestamp createdAt;
-    private String senderName;
-    private String senderRole;
-
-    public Message() {}
-
-    public Message(int applicationId, int senderId, String message) {
-        this.applicationId = applicationId;
-        this.senderId = senderId;
-        this.message = message;
+    
+    public Message() {
     }
-
-    public int getId() {
+    
+    public Message(Long userId, String message, boolean fromAdmin) {
+        this.userId = userId;
+        this.message = message;
+        this.fromAdmin = fromAdmin;
+    }
+    
+    // Getters and setters
+    public Long getId() {
         return id;
     }
-
-    public void setId(int id) {
+    
+    public void setId(Long id) {
         this.id = id;
     }
-
-    public int getApplicationId() {
-        return applicationId;
+    
+    public Long getUserId() {
+        return userId;
     }
-
-    public void setApplicationId(int applicationId) {
-        this.applicationId = applicationId;
+    
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
-
-    public int getSenderId() {
-        return senderId;
-    }
-
-    public void setSenderId(int senderId) {
-        this.senderId = senderId;
-    }
-
+    
     public String getMessage() {
         return message;
     }
-
+    
     public void setMessage(String message) {
         this.message = message;
     }
-
+    
+    public boolean isFromAdmin() {
+        return fromAdmin;
+    }
+    
+    public void setFromAdmin(boolean fromAdmin) {
+        this.fromAdmin = fromAdmin;
+    }
+    
     public Timestamp getCreatedAt() {
         return createdAt;
     }
-
+    
     public void setCreatedAt(Timestamp createdAt) {
         this.createdAt = createdAt;
     }
-
-    public String getSenderName() {
-        return senderName;
+    
+    // For backward compatibility
+    public int getApplicationId() {
+        return userId != null ? userId.intValue() : 0;
     }
-
+    
+    public void setApplicationId(int applicationId) {
+        this.userId = Long.valueOf(applicationId);
+    }
+    
+    public int getSenderId() {
+        return userId != null ? userId.intValue() : 0;
+    }
+    
+    public void setSenderId(int senderId) {
+        this.userId = Long.valueOf(senderId);
+    }
+    
     public void setSenderName(String senderName) {
-        this.senderName = senderName;
+        // Compatibility method, no-op
     }
-
-    public String getSenderRole() {
-        return senderRole;
-    }
-
+    
     public void setSenderRole(String senderRole) {
-        this.senderRole = senderRole;
+        // Compatibility method, no-op
     }
 } 

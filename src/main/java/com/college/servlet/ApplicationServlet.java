@@ -6,6 +6,7 @@ import com.college.dao.MessageDAO;
 import com.college.model.Application;
 import com.college.model.Document;
 import com.college.model.User;
+import com.college.model.Student;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -26,12 +27,15 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.DateTimeException;
+import java.text.SimpleDateFormat;
+import java.text.ParseException;
+import java.util.UUID;
 
 @WebServlet("/application/*")
 @MultipartConfig(
     fileSizeThreshold = 1024 * 1024, // 1 MB
     maxFileSize = 1024 * 1024 * 10,  // 10 MB
-    maxRequestSize = 1024 * 1024 * 15 // 15 MB
+    maxRequestSize = 1024 * 1024 * 50 // 50 MB
 )
 public class ApplicationServlet extends HttpServlet {
     private ApplicationDAO applicationDAO;
@@ -158,104 +162,87 @@ public class ApplicationServlet extends HttpServlet {
         }
 
         try {
-            // Validate required fields
-            String firstName = request.getParameter("firstName");
-            String lastName = request.getParameter("lastName");
-            String dateOfBirthStr = request.getParameter("dateOfBirth");
-            String phone = request.getParameter("phone");
-            String address = request.getParameter("address");
-            String program = request.getParameter("program");
-
-            System.out.println("DEBUG - Application Submission - User: " + user.getEmail());
-            System.out.println("DEBUG - Form data: " + firstName + " " + lastName + ", " + program);
-            System.out.println("DEBUG - DOB: " + dateOfBirthStr + ", Phone: " + phone);
-
-            // Check for empty required fields
-            if (firstName == null || firstName.trim().isEmpty() ||
-                lastName == null || lastName.trim().isEmpty() ||
-                dateOfBirthStr == null || dateOfBirthStr.trim().isEmpty() ||
-                phone == null || phone.trim().isEmpty() ||
-                address == null || address.trim().isEmpty() ||
-                program == null || program.trim().isEmpty()) {
-                
-                System.out.println("DEBUG - Missing required fields in form submission");
-                request.getSession().setAttribute("errorMessage", "Please fill in all required fields");
-                response.sendRedirect(request.getContextPath() + "/application/new?error=true");
-                return;
-            }
-
-            try {
-                // Parse and validate date
-                LocalDate localDate = LocalDate.parse(dateOfBirthStr);
-                Date sqlDate = Date.valueOf(localDate);
-                
-                Application application = new Application();
-                application.setUserId(user.getId());
-                application.setFirstName(firstName.trim());
-                application.setLastName(lastName.trim());
-                application.setDateOfBirth(sqlDate);
-                application.setPhone(phone.trim());
-                application.setAddress(address.trim());
-                application.setProgram(program.trim());
-                application.setStatus("PENDING");
-                
-                boolean created = applicationDAO.createApplication(application);
-                System.out.println("DEBUG - Application creation result: " + created + ", ID: " + application.getId());
-                
-                if (created) {
-                    // Create uploads directory if it doesn't exist
-                    String uploadsPath = getServletContext().getRealPath("") + File.separator + UPLOAD_DIRECTORY;
-                    File uploadsDir = new File(uploadsPath);
-                    if (!uploadsDir.exists()) {
-                        uploadsDir.mkdirs();
-                    }
-                    
-                    for (Part filePart : request.getParts()) {
-                        if (filePart != null && filePart.getName().startsWith("document") && filePart.getSize() > 0) {
-                            String fileName = getSubmittedFileName(filePart);
-                            if (fileName == null || fileName.isEmpty()) {
-                                continue;
-                            }
-                            
-                            String fileType = filePart.getContentType();
-                            String documentType = request.getParameter(filePart.getName() + "Type");
-                            
-                            System.out.println("DEBUG - Processing document: " + fileName + ", type: " + documentType);
-                            
-                            // Generate unique filename
-                            String uniqueFileName = System.currentTimeMillis() + "_" + fileName;
-                            String filePath = UPLOAD_DIRECTORY + File.separator + uniqueFileName;
-                            String absolutePath = getServletContext().getRealPath("") + File.separator + filePath;
-                            
-                            // Save file
-                            System.out.println("DEBUG - Saving file to: " + absolutePath);
-                            filePart.write(absolutePath);
-                            
-                            // Save document record
-                            Document document = new Document(
-                                application.getId(),
-                                fileName, 
-                                null, // fileType is not used in the database
-                                filePath,
-                                documentType
-                            );
-                            int documentId = documentDAO.saveDocument(document);
-                            System.out.println("DEBUG - Document saved with ID: " + documentId);
-                        }
-                    }
-                    
-                    request.getSession().setAttribute("successMessage", "Application submitted successfully!");
-                    response.sendRedirect(request.getContextPath() + "/application/list");
-                } else {
-                    System.out.println("DEBUG - Failed to create application record");
-                    request.getSession().setAttribute("errorMessage", "Failed to create application record");
-                    response.sendRedirect(request.getContextPath() + "/application/new?error=true");
+            // Create the application object
+            Application application = new Application();
+            
+            // Create student object
+            Student student = new Student();
+            student.setFirstName(request.getParameter("firstName"));
+            student.setLastName(request.getParameter("lastName"));
+            
+            // Parse and set date of birth
+            String dobStr = request.getParameter("dateOfBirth");
+            if (dobStr != null && !dobStr.isEmpty()) {
+                try {
+                    LocalDate localDate = LocalDate.parse(dobStr);
+                    Date sqlDate = Date.valueOf(localDate);
+                    student.setDateOfBirth(sqlDate);
+                } catch (DateTimeException e) {
+                    e.printStackTrace();
                 }
-            } catch (DateTimeException e) {
-                System.out.println("DEBUG - Error parsing date: " + dateOfBirthStr + " - " + e.getMessage());
-                request.getSession().setAttribute("errorMessage", "Invalid date format");
+            }
+            
+            student.setPhone(request.getParameter("phone"));
+            student.setAddress(request.getParameter("address"));
+            
+            // Set user to student
+            student.setUser(user);
+            
+            // Set student to application
+            application.setStudent(student);
+            
+            // Set application fields
+            application.setProgram(request.getParameter("program"));
+            application.setStatus("PENDING");
+            
+            // Save the application
+            boolean success = applicationDAO.createApplication(application);
+            if (success) {
+                // Create uploads directory if it doesn't exist
+                String uploadsPath = getServletContext().getRealPath("") + File.separator + UPLOAD_DIRECTORY;
+                File uploadsDir = new File(uploadsPath);
+                if (!uploadsDir.exists()) {
+                    uploadsDir.mkdirs();
+                }
+                
+                // Handle file uploads
+                for (Part part : request.getParts()) {
+                    String fieldName = part.getName();
+                    if (fieldName.startsWith("document") && part.getSize() > 0) {
+                        // Get document type from field name (e.g., document-transcript, document-photo, etc.)
+                        String documentType = fieldName.replace("document-", "");
+                        
+                        // Generate unique file name
+                        String fileName = getSubmittedFileName(part);
+                        String extension = fileName.substring(fileName.lastIndexOf("."));
+                        String uniqueFileName = UUID.randomUUID().toString() + extension;
+                        
+                        // Save file to disk
+                        String filePath = uploadsPath + File.separator + uniqueFileName;
+                        part.write(filePath);
+                        
+                        // Create document record in database
+                        Document document = new Document();
+                        document.setApplicationId(application.getId());
+                        document.setDocumentType(documentType);
+                        document.setFileName(fileName);
+                        document.setFilePath(uniqueFileName);
+                        
+                        documentDAO.saveDocument(document);
+                    }
+                }
+                
+                request.getSession().setAttribute("successMessage", "Application submitted successfully!");
+                response.sendRedirect(request.getContextPath() + "/application/list");
+            } else {
+                System.out.println("DEBUG - Failed to create application record");
+                request.getSession().setAttribute("errorMessage", "Failed to create application record");
                 response.sendRedirect(request.getContextPath() + "/application/new?error=true");
             }
+        } catch (DateTimeException e) {
+            System.out.println("DEBUG - Error parsing date: " + dobStr + " - " + e.getMessage());
+            request.getSession().setAttribute("errorMessage", "Invalid date format");
+            response.sendRedirect(request.getContextPath() + "/application/new?error=true");
         } catch (Exception e) {
             System.out.println("DEBUG - Unexpected error in application submission: " + e.getMessage());
             e.printStackTrace();
@@ -266,10 +253,10 @@ public class ApplicationServlet extends HttpServlet {
 
     private String getSubmittedFileName(Part part) {
         String contentDisp = part.getHeader("content-disposition");
-        String[] items = contentDisp.split(";");
-        for (String item : items) {
-            if (item.trim().startsWith("filename")) {
-                return item.substring(item.indexOf("=") + 2, item.length() - 1);
+        String[] tokens = contentDisp.split(";");
+        for (String token : tokens) {
+            if (token.trim().startsWith("filename")) {
+                return token.substring(token.indexOf("=") + 2, token.length() - 1);
             }
         }
         return "";

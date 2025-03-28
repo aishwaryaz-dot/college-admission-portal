@@ -8,63 +8,99 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MessageDAO {
-    public boolean createMessage(Message message) {
-        String sql = "INSERT INTO messages (application_id, sender_id, message) VALUES (?, ?, ?)";
+
+    public boolean saveMessage(Message message) {
+        String query = "INSERT INTO messages (user_id, message, is_from_admin) VALUES (?, ?, ?)";
+        
         try (Connection conn = DatabaseUtil.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+             PreparedStatement stmt = conn.prepareStatement(query)) {
             
-            stmt.setInt(1, message.getApplicationId());
-            stmt.setInt(2, message.getSenderId());
-            stmt.setString(3, message.getMessage());
+            stmt.setLong(1, message.getUserId());
+            stmt.setString(2, message.getMessage());
+            stmt.setBoolean(3, message.isFromAdmin());
             
-            return stmt.executeUpdate() > 0;
+            int rowsAffected = stmt.executeUpdate();
+            return rowsAffected > 0;
         } catch (SQLException e) {
             e.printStackTrace();
             return false;
         }
     }
-
-    public List<Message> getMessagesByApplicationId(int applicationId) {
+    
+    public List<Message> getMessagesByUserId(Long userId) {
         List<Message> messages = new ArrayList<>();
-        String sql = "SELECT m.*, u.email as sender_name, u.role as sender_role " +
-                    "FROM messages m " +
-                    "JOIN users u ON m.sender_id = u.id " +
-                    "WHERE m.application_id = ? " +
-                    "ORDER BY m.created_at ASC";
+        String query = "SELECT * FROM messages WHERE user_id = ? ORDER BY created_at DESC";
         
         try (Connection conn = DatabaseUtil.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+             PreparedStatement stmt = conn.prepareStatement(query)) {
             
-            stmt.setInt(1, applicationId);
-            ResultSet rs = stmt.executeQuery();
+            stmt.setLong(1, userId);
+            
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    Message message = new Message();
+                    message.setId(rs.getLong("id"));
+                    message.setUserId(rs.getLong("user_id"));
+                    message.setMessage(rs.getString("message"));
+                    message.setFromAdmin(rs.getBoolean("is_from_admin"));
+                    message.setCreatedAt(rs.getTimestamp("created_at"));
+                    messages.add(message);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        return messages;
+    }
+    
+    public List<Message> getAllMessages() {
+        List<Message> messages = new ArrayList<>();
+        String query = "SELECT * FROM messages ORDER BY created_at DESC";
+        
+        try (Connection conn = DatabaseUtil.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(query)) {
             
             while (rs.next()) {
                 Message message = new Message();
-                message.setId(rs.getInt("id"));
-                message.setApplicationId(rs.getInt("application_id"));
-                message.setSenderId(rs.getInt("sender_id"));
+                message.setId(rs.getLong("id"));
+                message.setUserId(rs.getLong("user_id"));
                 message.setMessage(rs.getString("message"));
+                message.setFromAdmin(rs.getBoolean("is_from_admin"));
                 message.setCreatedAt(rs.getTimestamp("created_at"));
-                message.setSenderName(rs.getString("sender_name"));
-                message.setSenderRole(rs.getString("sender_role"));
                 messages.add(message);
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
+        
         return messages;
     }
-
-    public boolean deleteMessagesByApplicationId(int applicationId) {
-        String sql = "DELETE FROM messages WHERE application_id = ?";
+    
+    public Message getMessageById(Long messageId) {
+        String query = "SELECT * FROM messages WHERE id = ?";
+        
         try (Connection conn = DatabaseUtil.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+             PreparedStatement stmt = conn.prepareStatement(query)) {
             
-            stmt.setInt(1, applicationId);
-            return stmt.executeUpdate() >= 0; // Return true even if no messages were deleted
+            stmt.setLong(1, messageId);
+            
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    Message message = new Message();
+                    message.setId(rs.getLong("id"));
+                    message.setUserId(rs.getLong("user_id"));
+                    message.setMessage(rs.getString("message"));
+                    message.setFromAdmin(rs.getBoolean("is_from_admin"));
+                    message.setCreatedAt(rs.getTimestamp("created_at"));
+                    return message;
+                }
+            }
         } catch (SQLException e) {
             e.printStackTrace();
-            return false;
         }
+        
+        return null;
     }
 } 
