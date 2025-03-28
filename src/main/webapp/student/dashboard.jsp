@@ -80,12 +80,38 @@
                 <a href="profile.jsp"><i class="fas fa-user mr-2"></i> My Profile</a>
                 <a href="applications.jsp"><i class="fas fa-file-alt mr-2"></i> My Applications</a>
                 <a href="apply.jsp"><i class="fas fa-plus-circle mr-2"></i> Apply</a>
-                <a href="${pageContext.request.contextPath}/auth?action=logout"><i class="fas fa-sign-out-alt mr-2"></i> Logout</a>
+                <a href="${pageContext.request.contextPath}/auth/logout"><i class="fas fa-sign-out-alt mr-2"></i> Logout</a>
             </div>
             
             <!-- Main Content -->
             <div class="col-md-10 content">
                 <h2 class="mb-4">Welcome, <%= currentUser.getEmail() %></h2>
+                
+                <!-- Main Action Cards -->
+                <div class="row mb-5">
+                    <div class="col-md-6">
+                        <div class="card dashboard-card bg-primary text-white h-100">
+                            <div class="card-body text-center">
+                                <i class="fas fa-file-alt fa-4x mb-3"></i>
+                                <h3>View Applications</h3>
+                                <p class="lead">Check the status of your submitted applications</p>
+                                <a href="applications.jsp" class="btn btn-light btn-lg mt-3">View Applications</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card dashboard-card bg-success text-white h-100">
+                            <div class="card-body text-center">
+                                <i class="fas fa-plus-circle fa-4x mb-3"></i>
+                                <h3>Apply Now</h3>
+                                <p class="lead">Submit a new application to your desired program</p>
+                                <a href="<% if (hasProfile) { %>apply.jsp<% } else { %>profile.jsp<% } %>" class="btn btn-light btn-lg mt-3">
+                                    <% if (hasProfile) { %>Apply Now<% } else { %>Complete Profile First<% } %>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 
                 <div class="row mb-4">
                     <div class="col-md-4">

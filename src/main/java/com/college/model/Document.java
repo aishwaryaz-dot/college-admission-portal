@@ -15,6 +15,13 @@ public class Document {
         // Default constructor
     }
 
+    public Document(Long applicationId, String fileName, String filePath, String documentType) {
+        this.applicationId = applicationId;
+        this.fileName = fileName;
+        this.filePath = filePath;
+        this.documentType = documentType;
+    }
+
     // Getters and Setters
     public Long getId() {
         return id;
@@ -62,5 +69,23 @@ public class Document {
 
     public void setUploadedAt(Timestamp uploadedAt) {
         this.uploadedAt = uploadedAt;
+    }
+
+    // For backward compatibility
+    public void setUploadDate(Timestamp date) {
+        this.uploadedAt = date;
+    }
+
+    public Timestamp getUploadDate() {
+        return this.uploadedAt;
+    }
+
+    // For backward compatibility with int IDs
+    public void setApplicationId(int applicationId) {
+        this.applicationId = Long.valueOf(applicationId);
+    }
+
+    public void setId(int id) {
+        this.id = Long.valueOf(id);
     }
 } 

@@ -92,7 +92,7 @@
                 <a href="profile.jsp"><i class="fas fa-user mr-2"></i> My Profile</a>
                 <a href="applications.jsp" class="active"><i class="fas fa-file-alt mr-2"></i> My Applications</a>
                 <a href="apply.jsp"><i class="fas fa-plus-circle mr-2"></i> Apply</a>
-                <a href="${pageContext.request.contextPath}/auth?action=logout"><i class="fas fa-sign-out-alt mr-2"></i> Logout</a>
+                <a href="${pageContext.request.contextPath}/auth/logout"><i class="fas fa-sign-out-alt mr-2"></i> Logout</a>
             </div>
             
             <!-- Main Content -->
