@@ -123,7 +123,7 @@ public class DocumentDAO {
                 document.setDocumentType(rs.getString("document_type"));
                 document.setFileName(rs.getString("file_name"));
                 document.setFilePath(rs.getString("file_path"));
-                document.setUploadDate(rs.getTimestamp("upload_date"));
+                document.setUploadedAt(rs.getTimestamp("uploaded_at"));
                 documents.add(document);
             }
         } catch (SQLException e) {
