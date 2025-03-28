@@ -4,6 +4,8 @@ import com.college.model.User;
 import com.college.util.DatabaseUtil;
 
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class UserDAO {
     public UserDAO() {
@@ -32,64 +34,103 @@ public class UserDAO {
         }
     }
 
-    public User authenticate(String email, String password) {
-        String sql = "SELECT * FROM users WHERE email = ? AND password = ?";
-        try (Connection conn = DatabaseUtil.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            
-            stmt.setString(1, email);
-            stmt.setString(2, password);
-            
-            ResultSet rs = stmt.executeQuery();
-            if (rs.next()) {
-                User user = new User();
-                user.setId(rs.getInt("id"));
-                user.setEmail(rs.getString("email"));
-                user.setRole(rs.getString("role"));
-                user.setCreatedAt(rs.getTimestamp("created_at"));
-                return user;
-            }
-        } catch (SQLException e) {
-            System.err.println("Authentication error: " + e.getMessage());
-        }
-        return null;
-    }
-
     public boolean registerUser(User user) {
-        String sql = "INSERT INTO users (email, password, role) VALUES (?, ?, ?)";
+        String query = "INSERT INTO users (email, password, role) VALUES (?, ?, ?)";
+        
         try (Connection conn = DatabaseUtil.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+             PreparedStatement stmt = conn.prepareStatement(query)) {
             
             stmt.setString(1, user.getEmail());
             stmt.setString(2, user.getPassword());
             stmt.setString(3, user.getRole());
             
-            return stmt.executeUpdate() > 0;
+            int rowsAffected = stmt.executeUpdate();
+            return rowsAffected > 0;
         } catch (SQLException e) {
-            System.err.println("User registration error: " + e.getMessage());
+            e.printStackTrace();
             return false;
         }
     }
-
-    public User getUserById(int id) {
-        String sql = "SELECT * FROM users WHERE id = ?";
+    
+    public User createUser(String email, String password, String role) {
+        User user = new User();
+        user.setEmail(email);
+        user.setPassword(password);
+        user.setRole(role);
+        return user;
+    }
+    
+    public User authenticate(String email, String password) {
+        String query = "SELECT * FROM users WHERE email = ? AND password = ?";
+        
         try (Connection conn = DatabaseUtil.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+             PreparedStatement stmt = conn.prepareStatement(query)) {
             
-            stmt.setInt(1, id);
-            ResultSet rs = stmt.executeQuery();
+            stmt.setString(1, email);
+            stmt.setString(2, password);
             
-            if (rs.next()) {
-                User user = new User();
-                user.setId(rs.getInt("id"));
-                user.setEmail(rs.getString("email"));
-                user.setRole(rs.getString("role"));
-                user.setCreatedAt(rs.getTimestamp("created_at"));
-                return user;
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    User user = new User();
+                    user.setId(rs.getLong("id"));
+                    user.setEmail(rs.getString("email"));
+                    user.setPassword(rs.getString("password"));
+                    user.setRole(rs.getString("role"));
+                    return user;
+                }
             }
         } catch (SQLException e) {
-            System.err.println("Error getting user by ID: " + e.getMessage());
+            e.printStackTrace();
         }
+        
         return null;
+    }
+    
+    public User getUserById(long userId) {
+        String query = "SELECT * FROM users WHERE id = ?";
+        
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+            
+            stmt.setLong(1, userId);
+            
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    User user = new User();
+                    user.setId(rs.getLong("id"));
+                    user.setEmail(rs.getString("email"));
+                    user.setPassword(rs.getString("password"));
+                    user.setRole(rs.getString("role"));
+                    return user;
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        return null;
+    }
+    
+    public List<User> getAllUsers() {
+        List<User> users = new ArrayList<>();
+        String query = "SELECT * FROM users";
+        
+        try (Connection conn = DatabaseUtil.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(query)) {
+            
+            while (rs.next()) {
+                User user = new User();
+                user.setId(rs.getLong("id"));
+                user.setEmail(rs.getString("email"));
+                user.setPassword(rs.getString("password"));
+                user.setRole(rs.getString("role"));
+                users.add(user);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        return users;
     }
 } 

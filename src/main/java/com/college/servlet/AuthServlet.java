@@ -70,7 +70,7 @@ public class AuthServlet extends HttpServlet {
         String email = request.getParameter("email");
         String password = request.getParameter("password");
         
-        User user = new User(email, password, "STUDENT");
+        User user = userDAO.createUser(email, password, "STUDENT");
         if (userDAO.registerUser(user)) {
             response.sendRedirect(request.getContextPath() + "/login.jsp?registered=true");
         } else {

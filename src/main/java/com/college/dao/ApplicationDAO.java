@@ -2,6 +2,8 @@ package com.college.dao;
 
 import com.college.model.Application;
 import com.college.model.Document;
+import com.college.model.Student;
+import com.college.model.User;
 import com.college.util.DatabaseUtil;
 
 import java.sql.*;
@@ -10,161 +12,164 @@ import java.util.List;
 
 public class ApplicationDAO {
     private DocumentDAO documentDAO;
-
+    private UserDAO userDAO;
+    
     public ApplicationDAO() {
-        try {
-            this.documentDAO = new DocumentDAO();
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.err.println("Error initializing DocumentDAO: " + e.getMessage());
-        }
+        this.documentDAO = new DocumentDAO();
+        this.userDAO = new UserDAO();
     }
-
-    // Helper method to safely get documents
-    private List<Document> safeGetDocuments(int applicationId) {
-        try {
-            if (documentDAO != null) {
-                return documentDAO.getDocumentsByApplicationId(applicationId);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.err.println("Error getting documents: " + e.getMessage());
-        }
-        return new ArrayList<>();
-    }
-
+    
     public boolean createApplication(Application application) {
-        String sql = "INSERT INTO applications (user_id, first_name, last_name, date_of_birth, phone, address, program, status) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        String query = "INSERT INTO applications (user_id, program, status) VALUES (?, ?, ?)";
+        
         try (Connection conn = DatabaseUtil.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+             PreparedStatement stmt = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
             
-            stmt.setInt(1, application.getUserId());
-            stmt.setString(2, application.getFirstName());
-            stmt.setString(3, application.getLastName());
-            stmt.setDate(4, application.getDateOfBirth());
-            stmt.setString(5, application.getPhone());
-            stmt.setString(6, application.getAddress());
-            stmt.setString(7, application.getProgram());
-            stmt.setString(8, application.getStatus());
+            // Get the user ID from the student's user object
+            User user = application.getStudent().getUser();
+            Long userId = user != null ? user.getId() : null;
             
-            int affectedRows = stmt.executeUpdate();
+            if (userId == null) {
+                return false;
+            }
             
-            if (affectedRows > 0) {
+            stmt.setLong(1, userId);
+            stmt.setString(2, application.getProgram());
+            stmt.setString(3, application.getStatus());
+            
+            int rowsAffected = stmt.executeUpdate();
+            
+            if (rowsAffected > 0) {
                 try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
                     if (generatedKeys.next()) {
-                        application.setId(generatedKeys.getInt(1));
+                        application.setId(generatedKeys.getLong(1));
                         return true;
                     }
                 }
             }
-            return false;
         } catch (SQLException e) {
             e.printStackTrace();
-            return false;
         }
+        
+        return false;
     }
-
-    public Application getApplicationById(int id) throws SQLException {
-        String sql = "SELECT * FROM applications WHERE id = ?";
+    
+    public Application getApplicationById(Long applicationId) {
+        String query = "SELECT a.*, s.first_name, s.last_name, s.date_of_birth, s.phone, s.address " +
+                      "FROM applications a " +
+                      "LEFT JOIN students s ON a.user_id = s.user_id " +
+                      "WHERE a.id = ?";
         
         try (Connection conn = DatabaseUtil.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             PreparedStatement stmt = conn.prepareStatement(query)) {
             
-            pstmt.setInt(1, id);
+            stmt.setLong(1, applicationId);
             
-            try (ResultSet rs = pstmt.executeQuery()) {
+            try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
-                    Application application = mapResultSetToApplication(rs);
-                    // Safely load documents
-                    application.setDocuments(safeGetDocuments(application.getId()));
-                    return application;
+                    return extractApplicationFromResultSet(rs);
                 }
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
+        
         return null;
     }
-
-    public List<Application> getApplicationsByUserId(int userId) throws SQLException {
+    
+    public List<Application> getApplicationsByUserId(Long userId) {
         List<Application> applications = new ArrayList<>();
-        String sql = "SELECT * FROM applications WHERE user_id = ? ORDER BY created_at DESC";
+        
+        String query = "SELECT a.*, s.first_name, s.last_name, s.date_of_birth, s.phone, s.address " +
+                      "FROM applications a " +
+                      "LEFT JOIN students s ON a.user_id = s.user_id " +
+                      "WHERE a.user_id = ?";
         
         try (Connection conn = DatabaseUtil.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             PreparedStatement stmt = conn.prepareStatement(query)) {
             
-            pstmt.setInt(1, userId);
+            stmt.setLong(1, userId);
             
-            try (ResultSet rs = pstmt.executeQuery()) {
+            try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
-                    Application application = mapResultSetToApplication(rs);
-                    // Safely load documents
-                    application.setDocuments(safeGetDocuments(application.getId()));
-                    applications.add(application);
+                    Application app = extractApplicationFromResultSet(rs);
+                    applications.add(app);
                 }
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
+        
         return applications;
     }
-
-    public List<Application> getAllApplications() throws SQLException {
+    
+    public List<Application> getAllApplications() {
         List<Application> applications = new ArrayList<>();
-        String sql = "SELECT * FROM applications ORDER BY created_at DESC";
+        
+        String query = "SELECT a.*, s.first_name, s.last_name, s.date_of_birth, s.phone, s.address " +
+                      "FROM applications a " +
+                      "LEFT JOIN students s ON a.user_id = s.user_id";
         
         try (Connection conn = DatabaseUtil.getConnection();
              Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+             ResultSet rs = stmt.executeQuery(query)) {
             
             while (rs.next()) {
-                Application application = mapResultSetToApplication(rs);
-                // Safely load documents
-                application.setDocuments(safeGetDocuments(application.getId()));
-                applications.add(application);
+                Application app = extractApplicationFromResultSet(rs);
+                applications.add(app);
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
+        
         return applications;
     }
-
-    public boolean updateApplicationStatus(int id, String status) {
-        String sql = "UPDATE applications SET status = ? WHERE id = ?";
+    
+    public boolean updateApplicationStatus(Long applicationId, String status) {
+        String query = "UPDATE applications SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?";
+        
         try (Connection conn = DatabaseUtil.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+             PreparedStatement stmt = conn.prepareStatement(query)) {
             
             stmt.setString(1, status);
-            stmt.setInt(2, id);
+            stmt.setLong(2, applicationId);
             
-            return stmt.executeUpdate() > 0;
+            int rowsAffected = stmt.executeUpdate();
+            return rowsAffected > 0;
         } catch (SQLException e) {
             e.printStackTrace();
             return false;
         }
     }
-
-    public boolean deleteApplication(int applicationId) throws SQLException {
-        String sql = "DELETE FROM applications WHERE id = ?";
-        
-        try (Connection conn = DatabaseUtil.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            
-            pstmt.setInt(1, applicationId);
-            
-            int affectedRows = pstmt.executeUpdate();
-            return affectedRows > 0;
-        }
-    }
-
-    private Application mapResultSetToApplication(ResultSet rs) throws SQLException {
+    
+    private Application extractApplicationFromResultSet(ResultSet rs) throws SQLException {
         Application application = new Application();
-        application.setId(rs.getInt("id"));
-        application.setUserId(rs.getInt("user_id"));
-        application.setFirstName(rs.getString("first_name"));
-        application.setLastName(rs.getString("last_name"));
-        application.setDateOfBirth(rs.getDate("date_of_birth"));
-        application.setPhone(rs.getString("phone"));
-        application.setAddress(rs.getString("address"));
+        application.setId(rs.getLong("id"));
         application.setProgram(rs.getString("program"));
         application.setStatus(rs.getString("status"));
-        application.setCreatedAt(rs.getTimestamp("created_at"));
-        application.setUpdatedAt(rs.getTimestamp("updated_at"));
+        application.setSubmissionDate(rs.getTimestamp("created_at"));
+        application.setLastUpdated(rs.getTimestamp("updated_at"));
+        
+        // Create student object
+        Student student = new Student();
+        student.setFirstName(rs.getString("first_name"));
+        student.setLastName(rs.getString("last_name"));
+        student.setDateOfBirth(rs.getDate("date_of_birth"));
+        student.setPhone(rs.getString("phone"));
+        student.setAddress(rs.getString("address"));
+        
+        // Get user ID from application
+        long userId = rs.getLong("user_id");
+        User user = userDAO.getUserById(userId);
+        student.setUser(user);
+        
+        // Set student to application
+        application.setStudent(student);
+        
+        // Set documents for the application
+        List<Document> documents = documentDAO.getDocumentsByApplicationId(application.getId());
+        application.setDocuments(documents);
+        
         return application;
     }
 } 
