@@ -30,6 +30,7 @@ import java.time.DateTimeException;
 import java.text.SimpleDateFormat;
 import java.text.ParseException;
 import java.util.UUID;
+import java.time.format.DateTimeParseException;
 
 @WebServlet("/application/*")
 @MultipartConfig(
@@ -124,17 +125,31 @@ public class ApplicationServlet extends HttpServlet {
 
     private void handleViewApplication(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException, SQLException {
-        int applicationId = Integer.parseInt(request.getParameter("id"));
-        Application application = applicationDAO.getApplicationById(applicationId);
-        
-        if (application != null) {
-            // Get documents for this application
-            List<Document> documents = documentDAO.getDocumentsByApplicationId(applicationId);
-            request.setAttribute("application", application);
-            request.setAttribute("documents", documents);
-            request.getRequestDispatcher("/WEB-INF/views/application-details.jsp").forward(request, response);
-        } else {
+        String idParam = request.getParameter("id");
+        if (idParam == null || idParam.isEmpty()) {
             response.sendRedirect(request.getContextPath() + "/application/list");
+            return;
+        }
+        
+        try {
+            Long applicationId = Long.parseLong(idParam);
+            Application application = applicationDAO.getApplicationById(applicationId);
+            
+            if (application == null) {
+                response.sendRedirect(request.getContextPath() + "/application/list?error=notfound");
+                return;
+            }
+            
+            List<Document> documents = documentDAO.getDocumentsByApplicationId(applicationId);
+            request.setAttribute("documents", documents);
+            request.setAttribute("application", application);
+            request.getRequestDispatcher("/student/view-application.jsp").forward(request, response);
+        } catch (NumberFormatException e) {
+            response.sendRedirect(request.getContextPath() + "/application/list?error=invalid");
+        } catch (Exception e) {
+            e.printStackTrace();
+            request.setAttribute("error", "Failed to view application: " + e.getMessage());
+            request.getRequestDispatcher("/error.jsp").forward(request, response);
         }
     }
 
@@ -153,14 +168,13 @@ public class ApplicationServlet extends HttpServlet {
 
     private void handleSubmitApplication(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
-        HttpSession session = request.getSession(false);
-        User user = (User) session.getAttribute("user");
-        
-        if (user == null || "ADMIN".equals(user.getRole())) {
+        // Get the logged-in user
+        User user = (User) request.getSession().getAttribute("user");
+        if (user == null) {
             response.sendRedirect(request.getContextPath() + "/login.jsp");
             return;
         }
-
+        
         try {
             // Create the application object
             Application application = new Application();
@@ -171,13 +185,13 @@ public class ApplicationServlet extends HttpServlet {
             student.setLastName(request.getParameter("lastName"));
             
             // Parse and set date of birth
-            String dobStr = request.getParameter("dateOfBirth");
-            if (dobStr != null && !dobStr.isEmpty()) {
+            String dateOfBirth = request.getParameter("dateOfBirth");
+            if (dateOfBirth != null && !dateOfBirth.isEmpty()) {
                 try {
-                    LocalDate localDate = LocalDate.parse(dobStr);
+                    LocalDate localDate = LocalDate.parse(dateOfBirth);
                     Date sqlDate = Date.valueOf(localDate);
                     student.setDateOfBirth(sqlDate);
-                } catch (DateTimeException e) {
+                } catch (DateTimeParseException e) {
                     e.printStackTrace();
                 }
             }
@@ -232,22 +246,15 @@ public class ApplicationServlet extends HttpServlet {
                     }
                 }
                 
-                request.getSession().setAttribute("successMessage", "Application submitted successfully!");
-                response.sendRedirect(request.getContextPath() + "/application/list");
+                response.sendRedirect(request.getContextPath() + "/student/applications.jsp");
             } else {
-                System.out.println("DEBUG - Failed to create application record");
-                request.getSession().setAttribute("errorMessage", "Failed to create application record");
-                response.sendRedirect(request.getContextPath() + "/application/new?error=true");
+                request.setAttribute("error", "Failed to submit application");
+                request.getRequestDispatcher("/student/apply.jsp").forward(request, response);
             }
-        } catch (DateTimeException e) {
-            System.out.println("DEBUG - Error parsing date: " + dobStr + " - " + e.getMessage());
-            request.getSession().setAttribute("errorMessage", "Invalid date format");
-            response.sendRedirect(request.getContextPath() + "/application/new?error=true");
         } catch (Exception e) {
-            System.out.println("DEBUG - Unexpected error in application submission: " + e.getMessage());
             e.printStackTrace();
-            request.getSession().setAttribute("errorMessage", "An unexpected error occurred: " + e.getMessage());
-            response.sendRedirect(request.getContextPath() + "/application/new?error=true");
+            request.setAttribute("error", "Failed to submit application: " + e.getMessage());
+            request.getRequestDispatcher("/student/apply.jsp").forward(request, response);
         }
     }
 
@@ -263,56 +270,83 @@ public class ApplicationServlet extends HttpServlet {
     }
 
     private void handleUpdateStatus(HttpServletRequest request, HttpServletResponse response) 
-            throws IOException {
-        HttpSession session = request.getSession(false);
-        User user = (User) session.getAttribute("user");
+            throws ServletException, IOException {
+        User user = (User) request.getSession().getAttribute("user");
+        if (user == null || !"ADMIN".equals(user.getRole())) {
+            response.sendRedirect(request.getContextPath() + "/login.jsp");
+            return;
+        }
         
-        if (!"ADMIN".equals(user.getRole())) {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+        String idParam = request.getParameter("id");
+        String status = request.getParameter("status");
+        
+        if (idParam == null || status == null) {
+            response.sendRedirect(request.getContextPath() + "/admin/applications.jsp?error=missing");
             return;
         }
         
         try {
-            int applicationId = Integer.parseInt(request.getParameter("id"));
-            String status = request.getParameter("status");
+            Long applicationId = Long.parseLong(idParam);
+            boolean updated = applicationDAO.updateApplicationStatus(applicationId, status);
             
-            if (applicationDAO.updateApplicationStatus(applicationId, status)) {
-                response.sendRedirect(request.getContextPath() + "/application/list");
+            if (updated) {
+                response.sendRedirect(request.getContextPath() + "/admin/applications.jsp?updated=true");
             } else {
-                response.sendRedirect(request.getContextPath() + "/application/list?error=true");
+                response.sendRedirect(request.getContextPath() + "/admin/applications.jsp?error=updatefailed");
             }
         } catch (NumberFormatException e) {
-            response.sendRedirect(request.getContextPath() + "/application/list?error=true");
+            response.sendRedirect(request.getContextPath() + "/admin/applications.jsp?error=invalid");
+        } catch (Exception e) {
+            e.printStackTrace();
+            request.setAttribute("error", "Failed to update application status: " + e.getMessage());
+            request.getRequestDispatcher("/error.jsp").forward(request, response);
         }
     }
 
     private void handleDownloadDocument(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException, SQLException {
-        int documentId = Integer.parseInt(request.getParameter("id"));
-        Document document = documentDAO.getDocumentById(documentId);
-        
-        if (document != null) {
-            String filePath = getServletContext().getRealPath("") + File.separator + document.getFilePath();
-            File file = new File(filePath);
+        String idParam = request.getParameter("id");
+        if (idParam == null || idParam.isEmpty()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing document ID");
+            return;
+        }
+
+        try {
+            Long documentId = Long.parseLong(idParam);
+            Document document = documentDAO.getDocumentById(documentId);
             
-            if (file.exists()) {
-                response.setContentType(document.getFileType());
-                response.setHeader("Content-Disposition", "attachment; filename=\"" + document.getFileName() + "\"");
-                response.setHeader("Content-Length", String.valueOf(file.length()));
+            if (document != null) {
+                String filePath = getServletContext().getRealPath("") + File.separator + document.getFilePath();
+                File file = new File(filePath);
                 
-                try (InputStream fileInputStream = new FileInputStream(file);
-                     OutputStream responseOutputStream = response.getOutputStream()) {
-                    byte[] buffer = new byte[4096];
-                    int bytesRead;
-                    while ((bytesRead = fileInputStream.read(buffer)) != -1) {
-                        responseOutputStream.write(buffer, 0, bytesRead);
+                if (file.exists()) {
+                    // Set content type based on file extension
+                    String fileName = document.getFileName();
+                    String contentType = getServletContext().getMimeType(fileName);
+                    if (contentType == null) {
+                        contentType = "application/octet-stream";
                     }
+                    
+                    response.setContentType(contentType);
+                    response.setHeader("Content-Disposition", "attachment; filename=\"" + document.getFileName() + "\"");
+                    response.setHeader("Content-Length", String.valueOf(file.length()));
+                    
+                    try (InputStream fileInputStream = new FileInputStream(file);
+                         OutputStream responseOutputStream = response.getOutputStream()) {
+                        byte[] buffer = new byte[4096];
+                        int bytesRead;
+                        while ((bytesRead = fileInputStream.read(buffer)) != -1) {
+                            responseOutputStream.write(buffer, 0, bytesRead);
+                        }
+                    }
+                } else {
+                    response.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found");
                 }
             } else {
-                response.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found");
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "Document not found");
             }
-        } else {
-            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Document not found");
+        } catch (NumberFormatException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid document ID format");
         }
     }
 
@@ -335,19 +369,19 @@ public class ApplicationServlet extends HttpServlet {
         }
 
         try {
-            int id = Integer.parseInt(idParam);
+            Long applicationId = Long.parseLong(idParam);
             
             // First delete associated messages
             MessageDAO messageDAO = new MessageDAO();
-            boolean messagesDeleted = messageDAO.deleteMessagesByApplicationId(id);
-            System.out.println("Messages deleted for application ID=" + id + ": " + messagesDeleted);
+            boolean messagesDeleted = messageDAO.deleteMessagesByUserId(applicationId);
+            System.out.println("Messages deleted for application ID=" + applicationId + ": " + messagesDeleted);
             
             // Then get documents for deletion of physical files
-            List<Document> documents = documentDAO.getDocumentsByApplicationId(id);
+            List<Document> documents = documentDAO.getDocumentsByApplicationId(applicationId);
             
             // Delete document database records first
-            boolean documentsDeleted = documentDAO.deleteDocumentsByApplicationId(id);
-            System.out.println("Document records deleted for application ID=" + id + ": " + documentsDeleted);
+            boolean documentsDeleted = documentDAO.deleteDocumentsByApplicationId(applicationId);
+            System.out.println("Document records deleted for application ID=" + applicationId + ": " + documentsDeleted);
             
             // Now delete physical files
             for (Document doc : documents) {
@@ -360,13 +394,13 @@ public class ApplicationServlet extends HttpServlet {
             }
             
             // Finally delete the application
-            boolean deleted = applicationDAO.deleteApplication(id);
+            boolean deleted = applicationDAO.deleteApplication(applicationId);
 
             if (deleted) {
-                System.out.println("Application deleted successfully: ID=" + id);
+                System.out.println("Application deleted successfully: ID=" + applicationId);
                 request.getSession().setAttribute("successMessage", "Application deleted successfully");
             } else {
-                System.out.println("Delete failed: Application not found or DB error for ID=" + id);
+                System.out.println("Delete failed: Application not found or DB error for ID=" + applicationId);
                 request.getSession().setAttribute("errorMessage", "Failed to delete application");
             }
         } catch (NumberFormatException e) {
