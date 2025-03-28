@@ -108,39 +108,42 @@ public class DocumentDAO {
         return null;
     }
     
-    public boolean deleteDocumentsByApplicationId(int applicationId) throws SQLException {
-        String sql = "DELETE FROM documents WHERE application_id = ?";
+    public boolean deleteDocumentsByApplicationId(Long applicationId) {
+        String query = "DELETE FROM documents WHERE application_id = ?";
         
         try (Connection conn = DatabaseUtil.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             PreparedStatement stmt = conn.prepareStatement(query)) {
             
-            pstmt.setInt(1, applicationId);
+            stmt.setLong(1, applicationId);
             
-            int affectedRows = pstmt.executeUpdate();
-            return affectedRows >= 0; // Return true even if no documents were deleted
+            int rowsAffected = stmt.executeUpdate();
+            return rowsAffected >= 0; // Return true even if no documents were deleted
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
         }
     }
     
-    public List<Document> getAllDocuments() throws SQLException {
+    public List<Document> getAllDocuments() {
         List<Document> documents = new ArrayList<>();
-        String sql = "SELECT * FROM documents";
+        String query = "SELECT * FROM documents";
         
         try (Connection conn = DatabaseUtil.getConnection();
              Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+             ResultSet rs = stmt.executeQuery(query)) {
             
             while (rs.next()) {
-                Document document = new Document(
-                    rs.getInt("application_id"),
-                    rs.getString("file_name"),
-                    null, // file_type is not in the database
-                    rs.getString("file_path"),
-                    rs.getString("document_type")
-                );
-                document.setId(rs.getInt("id"));
-                document.setUploadedAt(rs.getTimestamp("uploaded_at"));
+                Document document = new Document();
+                document.setId(rs.getLong("id"));
+                document.setApplicationId(rs.getLong("application_id"));
+                document.setDocumentType(rs.getString("document_type"));
+                document.setFileName(rs.getString("file_name"));
+                document.setFilePath(rs.getString("file_path"));
+                document.setUploadDate(rs.getTimestamp("upload_date"));
                 documents.add(document);
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
         return documents;
     }

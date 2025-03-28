@@ -25,7 +25,7 @@ public class UserDAO {
             ResultSet rs = stmt.executeQuery();
             if (!rs.next()) {
                 // Admin doesn't exist, create it
-                User admin = new User("admin@college.com", "admin123", "ADMIN");
+                User admin = createUser("admin@college.com", "admin123", "ADMIN");
                 registerUser(admin);
             }
         } catch (SQLException e) {
