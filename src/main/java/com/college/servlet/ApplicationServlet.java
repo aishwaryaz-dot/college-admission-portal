@@ -103,15 +103,6 @@ public class ApplicationServlet extends HttpServlet {
         HttpSession session = request.getSession(false);
         User user = (User) session.getAttribute("user");
         
-        // Debug information
-        System.out.println("=== DEBUG INFO ===");
-        System.out.println("Context Path: " + request.getContextPath());
-        System.out.println("Servlet Path: " + request.getServletPath());
-        System.out.println("Path Info: " + request.getPathInfo());
-        System.out.println("User Role: " + (user != null ? user.getRole() : "null"));
-        System.out.println("JSP Path: " + getServletContext().getRealPath("/WEB-INF/views/applications.jsp"));
-        System.out.println("==================");
-        
         List<Application> applications;
         if ("ADMIN".equals(user.getRole())) {
             applications = applicationDAO.getAllApplications();
@@ -350,24 +341,20 @@ public class ApplicationServlet extends HttpServlet {
         }
     }
 
-    private void handleDeleteApplication(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
-        // Get user from session and verify admin role
+    private void handleDeleteApplication(HttpServletRequest request, HttpServletResponse response) 
+            throws ServletException, IOException {
         User user = (User) request.getSession().getAttribute("user");
         if (user == null || !"ADMIN".equals(user.getRole())) {
-            System.out.println("Delete attempt by unauthorized user: " + (user != null ? user.getRole() : "not logged in"));
-            request.getSession().setAttribute("errorMessage", "Unauthorized: Only admins can delete applications");
-            response.sendRedirect(request.getContextPath() + "/application/list");
+            response.sendRedirect(request.getContextPath() + "/login.jsp");
             return;
         }
-
+        
         String idParam = request.getParameter("id");
-        if (idParam == null || idParam.trim().isEmpty()) {
-            System.out.println("Delete failed: Invalid ID parameter");
-            request.getSession().setAttribute("errorMessage", "Invalid application ID");
-            response.sendRedirect(request.getContextPath() + "/application/list");
+        if (idParam == null || idParam.isEmpty()) {
+            response.sendRedirect(request.getContextPath() + "/admin/applications.jsp?error=missing");
             return;
         }
-
+        
         try {
             Long applicationId = Long.parseLong(idParam);
             
@@ -395,7 +382,7 @@ public class ApplicationServlet extends HttpServlet {
             
             // Finally delete the application
             boolean deleted = applicationDAO.deleteApplication(applicationId);
-
+            
             if (deleted) {
                 System.out.println("Application deleted successfully: ID=" + applicationId);
                 request.getSession().setAttribute("successMessage", "Application deleted successfully");
