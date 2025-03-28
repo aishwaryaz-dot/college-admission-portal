@@ -1,27 +1,18 @@
 package com.college.model;
 
-import java.util.Date;
 import java.sql.Timestamp;
 
 public class Document {
     private Long id;
     private Long applicationId;
-    private String documentType;
     private String fileName;
     private String filePath;
-    private Timestamp uploadDate;
+    private String documentType;
+    private Timestamp uploadedAt;
 
     // No-argument constructor
     public Document() {
         // Default constructor
-    }
-
-    // Constructor
-    public Document(Long applicationId, String fileName, String filePath, String documentType) {
-        this.applicationId = applicationId;
-        this.fileName = fileName;
-        this.filePath = filePath;
-        this.documentType = documentType;
     }
 
     // Getters and Setters
@@ -41,14 +32,6 @@ public class Document {
         this.applicationId = applicationId;
     }
 
-    public String getDocumentType() {
-        return documentType;
-    }
-
-    public void setDocumentType(String documentType) {
-        this.documentType = documentType;
-    }
-
     public String getFileName() {
         return fileName;
     }
@@ -65,16 +48,19 @@ public class Document {
         this.filePath = filePath;
     }
 
-    public Timestamp getUploadDate() {
-        return uploadDate;
+    public String getDocumentType() {
+        return documentType;
     }
 
-    public void setUploadDate(Timestamp uploadDate) {
-        this.uploadDate = uploadDate;
+    public void setDocumentType(String documentType) {
+        this.documentType = documentType;
     }
 
-    // For backward compatibility
+    public Timestamp getUploadedAt() {
+        return uploadedAt;
+    }
+
     public void setUploadedAt(Timestamp uploadedAt) {
-        this.uploadDate = uploadedAt;
+        this.uploadedAt = uploadedAt;
     }
 } 

@@ -2,6 +2,7 @@ package com.college.model;
 
 import java.util.Date;
 import java.util.List;
+import java.sql.Timestamp;
 
 public class Application {
     private Long id;
@@ -12,6 +13,7 @@ public class Application {
     private Date lastUpdated;
     private String personalStatement;
     private List<Document> documents;
+    private Timestamp createdAt;
     
     public Application() {
     }
@@ -90,5 +92,13 @@ public class Application {
     
     public void setDocuments(List<Document> documents) {
         this.documents = documents;
+    }
+    
+    public Timestamp getCreatedAt() {
+        return createdAt;
+    }
+    
+    public void setCreatedAt(Timestamp createdAt) {
+        this.createdAt = createdAt;
     }
 } 
